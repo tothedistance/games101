@@ -1,1 +1,1 @@
-add_executable(transformation main.cpp)
+add_executable(hw0 main.cpp)
