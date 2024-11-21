@@ -1,0 +1,24 @@
+# Editor
+.vs
+.vscode
+
+# Compiled object files
+*.o
+
+# Compiled dynamic libraries
+*.so
+
+# Compiled static libraries
+*.a
+
+# Executables
+*.exe
+
+# Build directory
+CMakePresets.json
+CMakeSettings.json
+build/
+out/
+
+# Dependency directory
+deps/
