@@ -9,6 +9,7 @@
 #include <opencv2/opencv.hpp>
 #include <math.h>
 
+#include "discrete_math.hpp"
 
 rst::pos_buf_id rst::rasterizer::load_positions(const std::vector<Eigen::Vector3f> &positions)
 {
@@ -43,6 +44,15 @@ auto to_vec4(const Eigen::Vector3f& v3, float w = 1.0f)
 static bool insideTriangle(int x, int y, const Vector3f* _v)
 {   
     // TODO : Implement this function to check if the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
+    auto v = _v;
+    float c1 = (x * (v[1].y() - v[2].y()) + (v[2].x() - v[1].x()) * y + v[1].x() * v[2].y() - v[2].x() * v[1].y()) / (v[0].x() * (v[1].y() - v[2].y()) + (v[2].x() - v[1].x()) * v[0].y() + v[1].x() * v[2].y() - v[2].x() * v[1].y());
+    float c2 = (x * (v[2].y() - v[0].y()) + (v[0].x() - v[2].x()) * y + v[2].x() * v[0].y() - v[0].x() * v[2].y()) / (v[1].x() * (v[2].y() - v[0].y()) + (v[0].x() - v[2].x()) * v[1].y() + v[2].x() * v[0].y() - v[0].x() * v[2].y());
+    float c3 = (x * (v[0].y() - v[1].y()) + (v[1].x() - v[0].x()) * y + v[0].x() * v[1].y() - v[1].x() * v[0].y()) / (v[2].x() * (v[0].y() - v[1].y()) + (v[1].x() - v[0].x()) * v[2].y() + v[0].x() * v[1].y() - v[1].x() * v[0].y());
+    if ((c1 >= 0 && c2 >= 0 && c3 >= 0) || (c1 <= 0 && c2 <= 0 && c3 <= 0)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 static std::tuple<float, float, float> computeBarycentric2D(float x, float y, const Vector3f* v)
@@ -116,6 +126,41 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     //z_interpolated *= w_reciprocal;
 
     // TODO : set the current pixel (use the set_pixel function) to the color of the triangle (use getColor function) if it should be painted.
+
+    std::vector<int> indexes = {0, 1, 2};
+    std::sort(indexes.begin(), indexes.end(), [&v](int i1, int i2) { return v[i1].y() < v[i2].y(); });
+    auto bottom = v[indexes[0]], top = v[indexes[2]], c = v[indexes[1]];
+
+    auto lba = games::rasterize_line(bottom.head<3>(), top.head<3>());
+    auto lbc = games::rasterize_line(bottom.head<3>(), c.head<3>());
+    auto lca = games::rasterize_line(c.head<3>(), top.head<3>());
+    auto iter_ba = lba.begin(), iter_bc = lbc.begin(), iter_ca = lca.begin();
+
+    while(iter_ba != lba.end()) {
+        auto x1 = iter_ba->x();
+        auto y = iter_ba->y();
+        int x2;
+        while (iter_bc != lbc.end() && iter_bc->y() <= y) {
+            x2 = iter_bc->x();
+            iter_bc++;
+        }
+        while (iter_ca != lca.end() && iter_ca->y() <= y) {
+            x2 = iter_ca->x();
+            iter_ca++;
+        }
+ 
+        for(int i = std::min(x1, x2); i <= std::max(x1, x2); i++) {
+            auto[alpha, beta, gamma] = computeBarycentric2D(i, y, t.v);
+            float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+            float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+            z_interpolated *= w_reciprocal;
+            if (z_interpolated < depth_buf[get_index(i, y)]) {
+                depth_buf[get_index(i, y)] = z_interpolated;
+                set_pixel(Eigen::Vector3f(i, y, 0), t.getColor());
+            }
+        }
+        iter_ba++;
+    }
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)
