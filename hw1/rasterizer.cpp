@@ -29,100 +29,35 @@ rst::ind_buf_id rst::rasterizer::load_indices(const std::vector<Eigen::Vector3i>
 // Code taken from a stack overflow answer: https://stackoverflow.com/a/16405254
 void rst::rasterizer::draw_line(Eigen::Vector3f begin, Eigen::Vector3f end)
 {
-    auto x1 = begin.x();
-    auto y1 = begin.y();
-    auto x2 = end.x();
-    auto y2 = end.y();
+    int x0 = begin.x();
+    int y0 = begin.y();
+    int x1 = end.x();
+    int y1 = end.y();
 
-    Eigen::Vector3f line_color = {255, 255, 255};
+    int dx = std::abs(x1 - x0);
+    int dy = -std::abs(y1 - y0);
 
-    int x,y,dx,dy,dx1,dy1,px,py,xe,ye,i;
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
 
-    dx=x2-x1;
-    dy=y2-y1;
-    dx1=fabs(dx);
-    dy1=fabs(dy);
-    px=2*dy1-dx1;
-    py=2*dx1-dy1;
+    int err = dx + dy;
 
-    if(dy1<=dx1)
-    {
-        if(dx>=0)
-        {
-            x=x1;
-            y=y1;
-            xe=x2;
+    while (true) {
+        set_pixel(Eigen::Vector3f(x0, y0, 0), Eigen::Vector3f(255, 255, 255));
+
+        if (x0 == x1 && y0 == y1)
+            break;
+
+        int e2 = 2 * err;
+
+        if (e2 >= dy) {
+            err += dy;
+            x0 += sx;
         }
-        else
-        {
-            x=x2;
-            y=y2;
-            xe=x1;
-        }
-        Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-        set_pixel(point,line_color);
-        for(i=0;x<xe;i++)
-        {
-            x=x+1;
-            if(px<0)
-            {
-                px=px+2*dy1;
-            }
-            else
-            {
-                if((dx<0 && dy<0) || (dx>0 && dy>0))
-                {
-                    y=y+1;
-                }
-                else
-                {
-                    y=y-1;
-                }
-                px=px+2*(dy1-dx1);
-            }
-//            delay(0);
-            Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-            set_pixel(point,line_color);
-        }
-    }
-    else
-    {
-        if(dy>=0)
-        {
-            x=x1;
-            y=y1;
-            ye=y2;
-        }
-        else
-        {
-            x=x2;
-            y=y2;
-            ye=y1;
-        }
-        Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-        set_pixel(point,line_color);
-        for(i=0;y<ye;i++)
-        {
-            y=y+1;
-            if(py<=0)
-            {
-                py=py+2*dx1;
-            }
-            else
-            {
-                if((dx<0 && dy<0) || (dx>0 && dy>0))
-                {
-                    x=x+1;
-                }
-                else
-                {
-                    x=x-1;
-                }
-                py=py+2*(dx1-dy1);
-            }
-//            delay(0);
-            Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-            set_pixel(point,line_color);
+
+        if (e2 <= dx) {
+            err += dx;
+            y0 += sy;
         }
     }
 }
@@ -183,9 +118,9 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
 
 void rst::rasterizer::rasterize_wireframe(const Triangle& t)
 {
-    draw_line(t.c(), t.a());
-    draw_line(t.c(), t.b());
-    draw_line(t.b(), t.a());
+    Eigen::Vector3f v0 = {1., 1., 0.};
+    Eigen::Vector3f v1 = {241., 641., 0.};
+    draw_line(v0, v1);
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)
