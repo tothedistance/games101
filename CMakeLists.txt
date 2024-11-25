@@ -4,6 +4,8 @@ project(cpp)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 17)
 
+set(LIB_TYPE STATIC)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include(utils)
