@@ -2,9 +2,9 @@
 #define __COMMON_H__
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
-
 #include <algorithm>
 #include <array>
 #include <chrono>

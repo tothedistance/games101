@@ -18,14 +18,12 @@ find_package(gflags REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
-
 link_libraries(glog::glog)
 link_libraries(GTest::gtest)
 link_libraries(gflags)
 link_libraries(Eigen3::Eigen)
 link_libraries(opencv_core)
 link_libraries(opencv_highgui)
-
 
 subdirlist(src_dirs ${CMAKE_SOURCE_DIR})
 list(
