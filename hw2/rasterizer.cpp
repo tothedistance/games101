@@ -145,6 +145,9 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
             z_interpolated *= w_reciprocal;
             if (z_interpolated < depth_buf[get_index(i, y)]) {
+                // z interpolate should be calculated according to 3d space
+                // https://www.bilibili.com/video/BV1X7411F744?t=1122.2&p=9
+                // https://zhuanlan.zhihu.com/p/509902950
                 depth_buf[get_index(i, y)] = z_interpolated;
                 set_pixel(Eigen::Vector3f(i, y, 0), t.getColor());
             }

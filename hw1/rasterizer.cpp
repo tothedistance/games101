@@ -24,8 +24,7 @@ rst::ind_buf_id rst::rasterizer::load_indices(const std::vector<Eigen::Vector3i>
     return {id};
 }
 
-// Bresenham's line drawing algorithm
-// Code taken from a stack overflow answer: https://stackoverflow.com/a/16405254
+// this algorithm comes from chatgpt which i dont know the source its from
 void rst::rasterizer::draw_line(Eigen::Vector3f begin, Eigen::Vector3f end) {
     int x0 = begin.x();
     int y0 = begin.y();
