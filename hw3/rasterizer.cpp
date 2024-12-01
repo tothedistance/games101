@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <opencv2/opencv.hpp>
 
+#include "discrete_math.hpp"
+
 rst::pos_buf_id rst::rasterizer::load_positions(const std::vector<Eigen::Vector3f>& positions) {
     auto id = get_next_id();
     pos_buf.emplace(id, positions);
@@ -203,6 +205,10 @@ void rst::rasterizer::draw(std::vector<Triangle*>& TriangleList) {
     }
 }
 
+static float interpolate(float alpha, float beta, float gamma, const float& vert1, const float& vert2, const float& vert3, float weight) {
+    return (alpha * vert1 + beta * vert2 + gamma * vert3) / weight;
+}
+
 static Eigen::Vector3f interpolate(float alpha, float beta, float gamma, const Eigen::Vector3f& vert1, const Eigen::Vector3f& vert2, const Eigen::Vector3f& vert3, float weight) {
     return (alpha * vert1 + beta * vert2 + gamma * vert3) / weight;
 }
@@ -239,6 +245,61 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
     // Use: payload.view_pos = interpolated_shadingcoords;
     // Use: Instead of passing the triangle's color directly to the frame buffer, pass the color to the shaders first to get the final color;
     // Use: auto pixel_color = fragment_shader(payload);
+
+    auto v = t.v;
+    std::vector<int> indexes = {0, 1, 2};
+    std::sort(indexes.begin(), indexes.end(), [&v](int i1, int i2) { return v[i1].y() < v[i2].y(); });
+    auto bottom = v[indexes[0]], top = v[indexes[2]], c = v[indexes[1]];
+
+    auto lba = games::rasterize_line(bottom.head<3>(), top.head<3>());
+    auto lbc = games::rasterize_line(bottom.head<3>(), c.head<3>());
+    auto lca = games::rasterize_line(c.head<3>(), top.head<3>());
+    auto iter_ba = lba.begin(), iter_bc = lbc.begin(), iter_ca = lca.begin();
+
+    auto comparator = [](const Eigen::Vector2d& a, const Eigen::Vector2d& b) {
+        // Compare first by x, then by y
+        return (a.x() < b.x()) || (a.x() == b.x() && a.y() < b.y());
+    };
+    set<Vector2d, decltype(comparator)> points(comparator);
+    std::transform(lba.begin(), lba.end(), std::inserter(points, points.end()), [](const Eigen::Vector3i& v) -> Vector2d { return {v.x(), v.y()}; });
+    std::transform(lbc.begin(), lbc.end(), std::inserter(points, points.end()), [](const Eigen::Vector3i& v) -> Vector2d { return {v.x(), v.y()}; });
+    std::transform(lca.begin(), lca.end(), std::inserter(points, points.end()), [](const Eigen::Vector3i& v) -> Vector2d { return {v.x(), v.y()}; });
+
+    while (iter_ba != lba.end()) {
+        auto x1 = iter_ba->x();
+        auto y = iter_ba->y();
+        int x2;
+        while (iter_bc != lbc.end() && iter_bc->y() <= y) {
+            x2 = iter_bc->x();
+            iter_bc++;
+        }
+        while (iter_ca != lca.end() && iter_ca->y() <= y) {
+            x2 = iter_ca->x();
+            iter_ca++;
+        }
+
+        for (int i = std::min(x1, x2); i <= std::max(x1, x2); i++) {
+            auto [alpha, beta, gamma] = computeBarycentric2D(i + 0.5, y + 0.5, t.v);
+            float w_interpolated, z_interpolated;
+            Vector2f texcoords_interpolated;
+            Vector3f color_interpolated, normal_interpolated, shadingcoords_interpolated;
+            w_interpolated = 1 / interpolate(alpha, beta, gamma, 1 / v[0].w(), 1 / v[1].w(), 1 / v[2].w(), 1);
+            z_interpolated = interpolate(alpha, beta, gamma, v[0].z() / v[0].w(), v[1].z() / v[2].w(), v[2].z() / v[2].w(), 1);
+            z_interpolated *= w_interpolated;
+            if (z_interpolated < depth_buf[get_index(i, y)]) {
+                depth_buf[get_index(i, y)] = z_interpolated;
+                color_interpolated = interpolate(alpha, beta, gamma, t.color[0], t.color[1], t.color[2], 1);
+                normal_interpolated = interpolate(alpha, beta, gamma, t.normal[0], t.normal[1], t.normal[2], 1);
+                texcoords_interpolated = interpolate(alpha, beta, gamma, t.tex_coords[0], t.tex_coords[1], t.tex_coords[2], 1);
+                shadingcoords_interpolated = interpolate(alpha, beta, gamma, view_pos[0], view_pos[1], view_pos[2], 1);
+                fragment_shader_payload payload(color_interpolated, normal_interpolated.normalized(), texcoords_interpolated, texture ? &*texture : nullptr);
+                payload.view_pos = shadingcoords_interpolated;
+                auto pixel_color = fragment_shader(payload);
+                set_pixel(Eigen::Vector2i(i, y), pixel_color);
+            }
+        }
+        iter_ba++;
+    }
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m) {
